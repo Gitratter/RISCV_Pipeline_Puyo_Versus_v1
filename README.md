@@ -1,1 +1,1 @@
-# RISCV Puyo Versus v3
+# RISCV Puyo Versus v1
