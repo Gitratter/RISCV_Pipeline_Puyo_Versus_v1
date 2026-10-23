@@ -10,25 +10,27 @@ memory, input interfaces, display registers, and VGA scanout.
 |---|---|
 | Board | Digilent Basys 3 |
 | FPGA | xc7a35tcpg236-1 |
-| Toolchain | Vivado 2025.2 |
+| Development tool | Vivado 2025.2 |
 | Board clock | 100 MHz |
 | CPU and pixel clock | 25 MHz |
 | Display | 640 x 480 VGA, approximately 59.52 Hz |
 | Player 2 input | USB keyboard connected directly to the J2 USB Type-A port |
 
-## Open and program
+## Build and program
 
-Extract the entire archive to a short path, such as `C:/FPGA/PuyoVersus`.
-Open [RISCV_Puyo_Versus_v3.xpr](RISCV_Puyo_Versus_v3.xpr). The project already
-contains the HDL, constraints, memory images, and simulation sources.
+This repository contains HDL, constraints, firmware, memory images, and tests.
+It does not contain a Vivado project file or a prebuilt bitstream.
 
-The design top is `RISCV_PUYO_VERSUS_TOP`. To build the hardware, run
-**Run Synthesis**, **Run Implementation**, and **Generate Bitstream**.
+Create an RTL project for `xc7a35tcpg236-1`, add the files from
+`sources_1/new/`, and add `constrs_1/new/Basys3_Puyo_Versus.xdc` as the
+constraint file. Set the design top to `RISCV_PUYO_VERSUS_TOP`.
 
-A prebuilt [bitstream](programming/RISCV_PUYO_VERSUS_TOP.bit) is included.
-In Hardware Manager, connect to the Basys 3 and select this file under
-**Program Device**. A C compiler is not required to use the supplied memory
-images or bitstream.
+Run **Synthesis**, **Implementation**, and **Generate Bitstream**, then use
+Hardware Manager to program the Basys 3 with the resulting bitstream.
+The supplied production MEM files can be used without compiling C.
+
+See [Build and test setup](docs/BUILD.md) for source registration, simulation
+settings, and firmware-image requirements.
 
 ## Controls
 
@@ -48,7 +50,7 @@ images or bitstream.
 - Release any gameplay keys held through the countdown before pressing them again.
 
 Connect the keyboard to J2, not the Micro-USB programming connector.
-USB hubs are not supported. See [Keyboard interface](software/docs/KEYBOARD.md).
+USB hubs are not supported. See [Keyboard interface](docs/KEYBOARD.md).
 
 ## Gameplay
 
@@ -62,36 +64,38 @@ attacks are sent after the chain ends. At most 30 garbage pieces drop at the
 end of one turn.
 
 These are simplified rules, not a complete reproduction of the original game.
-See [Game rules](software/docs/RULES_AND_TESTS.md).
+See [Game rules](docs/RULES_AND_TESTS.md).
 
-## Files
+## Repository layout
 
 | Path | Contents |
 |---|---|
-| `RISCV_Puyo_Versus_v3.xpr` | Vivado project |
-| `RISCV_Puyo_Versus_v3.srcs/` | Registered HDL, XDC, MEM, and testbench files |
-| `software/firmware/` | RV32I firmware source |
-| `software/tests/` | Game and match regression tests |
-| `software/scripts/` | Firmware, simulation, and hardware build scripts |
-| `software/docs/` | Technical documentation |
-| `programming/` | Bitstream and implementation reports |
+| `sources_1/new/` | Synthesizable HDL and production memory images |
+| `constrs_1/new/` | Basys 3 pin and timing constraints |
+| `sim_1/new/` | RTL testbenches, include file, and test memory images |
+| `firmware/` | RV32I C source, startup, linker script, and memory images |
+| `tests/` | Native/RV32I game regression source and test descriptions |
+| `docs/` | Architecture, rules, interfaces, and build documentation |
 
-The project filenames are part of the build configuration; do not rename them
-individually. For firmware changes, follow the [build instructions](software/README.md).
+The repository uses these top-level directories directly; it has no
+`software/`, `programming/`, or build-script directory.
 
 ## Documentation
 
-- [Architecture and memory map](software/docs/ARCHITECTURE.md)
-- [Game rules](software/docs/RULES_AND_TESTS.md)
-- [Keyboard interface](software/docs/KEYBOARD.md)
-- [Video interface](software/docs/VIDEO.md)
-- [Verification status and limitations](software/docs/VERIFICATION.md)
-- [Game engine API](software/firmware/GAME_ENGINE.md)
+- [Build and test setup](docs/BUILD.md)
+- [Architecture and memory map](docs/ARCHITECTURE.md)
+- [Game rules](docs/RULES_AND_TESTS.md)
+- [Keyboard interface](docs/KEYBOARD.md)
+- [Video interface](docs/VIDEO.md)
+- [Verification status and limitations](docs/VERIFICATION.md)
+- [Game engine API](firmware/GAME_ENGINE.md)
+- [Single-player tests](tests/README.md)
+- [Versus tests](tests/README_VERSUS.md)
 
-The supplied implementation meets its 25 MHz timing constraints.
+The implementation meets its configured 25 MHz timing constraints.
 Physical-board gameplay and keyboard compatibility remain unverified.
 The simulation tool limitations are listed in the verification document.
 
 ## License
 
-[MIT](software/LICENSE).
+[MIT](LICENSE).
