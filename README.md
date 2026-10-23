@@ -1,92 +1,97 @@
-# Firmware and Build Tools
+# RISC-V Pipeline Puyo Versus v1
 
-The firmware runs on the RV32I CPU in the Vivado project. It owns both game
-boards and implements movement, collision detection, gravity, connected-group
-search, clearing, scoring, attacks, cancellation, and match results.
+A single-player and two-player falling-pair puzzle game for the Digilent Basys 3.
+An RV32I pipelined CPU runs the game firmware. Verilog implements the CPU,
+memory, input interfaces, display registers, and VGA scanout.
 
-## Source layout
+## Hardware
 
-| File | Purpose |
+| Item | Configuration |
 |---|---|
-| `firmware/game.c`, `game.h` | Shared per-player game logic |
-| `firmware/match.c`, `match.h` | Match state, attack arbitration, garbage reservations, and results |
-| `firmware/versus_main.c` | Input polling, game updates, and display publication |
-| `firmware/main.c` | Standalone single-player firmware used by regression tests |
-| `firmware/start.S`, `link.ld`, `runtime.c` | Startup, memory layout, and runtime support |
-| `tests/game_tests.c` | 26 single-player scenarios |
-| `tests/versus_tests.c` | 32 versus scenarios |
+| Board | Digilent Basys 3 |
+| FPGA | xc7a35tcpg236-1 |
+| Toolchain | Vivado 2025.2 |
+| Board clock | 100 MHz |
+| CPU and pixel clock | 25 MHz |
+| Display | 640 x 480 VGA, approximately 59.52 Hz |
+| Player 2 input | USB keyboard connected directly to the J2 USB Type-A port |
 
-## Build the firmware
+## Open and program
 
-Run the following from the package root. Python 3 and a bare-metal RISC-V GCC
-toolchain are required.
+Extract the entire archive to a short path, such as `C:/FPGA/PuyoVersus`.
+Open [RISCV_Puyo_Versus_v3.xpr](RISCV_Puyo_Versus_v3.xpr). The project already
+contains the HDL, constraints, memory images, and simulation sources.
 
-```powershell
-python software/scripts/build_firmware.py --variant all --gcc "C:/AMDDesignTools/2025.2/gnu/riscv/nt/bin/riscv64-unknown-elf-gcc.exe"
-```
+The design top is `RISCV_PUYO_VERSUS_TOP`. To build the hardware, run
+**Run Synthesis**, **Run Implementation**, and **Generate Bitstream**.
 
-Adjust the compiler path for the local installation. The build uses
-`-march=rv32i -mabi=ilp32`, checks executable instructions, and creates separate
-instruction and data images. Images are copied into the registered Vivado
-source directories automatically.
+A prebuilt [bitstream](programming/RISCV_PUYO_VERSUS_TOP.bit) is included.
+In Hardware Manager, connect to the Basys 3 and select this file under
+**Program Device**. A C compiler is not required to use the supplied memory
+images or bitstream.
 
-| Variant | Use |
+## Controls
+
+| Action | Player 1: board | Player 2: keyboard |
+|---|---|---|
+| Move left / right | Left / right buttons | Left / right arrow keys |
+| Soft drop | Down button | Down arrow key |
+| Rotate counterclockwise | Center button | Z |
+| Rotate clockwise | Up button | X |
+
+- Set SW0 before starting: 0 for single-player, 1 for versus.
+- Change SW14 from 0 to 1 to start the three-second countdown.
+- After a result, return SW14 to 0 and then to 1 for a new match.
+- SW14 and mode changes do not interrupt an active versus match.
+- In single-player mode, SW14 can also restart an active game.
+- SW15 is the dedicated hardware reset; keep it at 0 during play.
+- Release any gameplay keys held through the countdown before pressing them again.
+
+Connect the keyboard to J2, not the Micro-USB programming connector.
+USB hubs are not supported. See [Keyboard interface](software/docs/KEYBOARD.md).
+
+## Gameplay
+
+Each player has a 6 x 12 visible field, four colors, and a two-piece active pair.
+Groups of at least four orthogonally connected pieces clear together. Gravity
+and repeated clears produce chains.
+
+Versus mode uses identical piece sequences for both players, independent of
+placement speed. Attacks first cancel pending incoming garbage. Remaining
+attacks are sent after the chain ends. At most 30 garbage pieces drop at the
+end of one turn.
+
+These are simplified rules, not a complete reproduction of the original game.
+See [Game rules](software/docs/RULES_AND_TESTS.md).
+
+## Files
+
+| Path | Contents |
 |---|---|
-| `game` | Standalone single-player regression firmware |
-| `tests` | Single-player C test suite |
-| `integration` | Single-player integration fixture |
-| `versus` | Production firmware for both selectable modes |
-| `versus_tests` | Versus C test suite |
-| `versus_integration` | Integration fixture with a 50 ms countdown |
+| `RISCV_Puyo_Versus_v3.xpr` | Vivado project |
+| `RISCV_Puyo_Versus_v3.srcs/` | Registered HDL, XDC, MEM, and testbench files |
+| `software/firmware/` | RV32I firmware source |
+| `software/tests/` | Game and match regression tests |
+| `software/scripts/` | Firmware, simulation, and hardware build scripts |
+| `software/docs/` | Technical documentation |
+| `programming/` | Bitstream and implementation reports |
 
-Production firmware uses a three-second countdown. The shortened countdown
-applies only to the integration fixture.
+The project filenames are part of the build configuration; do not rename them
+individually. For firmware changes, follow the [build instructions](software/README.md).
 
-The `.mem` files contain machine instructions and initialized RAM data, not
-sprites. The CPU loads them through its instruction and data memories.
-After changing C code, rebuild the images and rerun synthesis, implementation,
-and bitstream generation. The prebuilt bitstream in `programming/` is not
-replaced automatically.
+## Documentation
 
-## Host tests
+- [Architecture and memory map](software/docs/ARCHITECTURE.md)
+- [Game rules](software/docs/RULES_AND_TESTS.md)
+- [Keyboard interface](software/docs/KEYBOARD.md)
+- [Video interface](software/docs/VIDEO.md)
+- [Verification status and limitations](software/docs/VERIFICATION.md)
+- [Game engine API](software/firmware/GAME_ENGINE.md)
 
-```powershell
-python software/scripts/run_versus_host_tests.py --gcc "C:/AMDDesignTools/2025.2/tps/mingw/10.0.0/win64.o/nt/bin/gcc.exe"
-```
+The supplied implementation meets its 25 MHz timing constraints.
+Physical-board gameplay and keyboard compatibility remain unverified.
+The simulation tool limitations are listed in the verification document.
 
-This runs both C suites using a native compiler. Test descriptions are in
-[Single-player tests](tests/README.md) and [Versus tests](tests/README_VERSUS.md).
+## License
 
-## RTL tests
-
-The default Vivado simulation top is `tb_versus_system`. The simulation fileset
-defines `SIMULATION`; the synthesis fileset must not define it.
-
-The Icarus runner supports all testbenches or a selected subset:
-
-```powershell
-python software/scripts/run_sim_tests.py --iverilog "C:/tools/iverilog/bin/iverilog.exe" --vvp "C:/tools/iverilog/bin/vvp.exe" --ivl-dir "C:/tools/iverilog/lib/ivl"
-```
-
-Use `--tests tb_keyboard tb_versus_mmio` to select individual benches.
-The runner rejects compilation failures by default. The optional
-`--diagnostic-compiler` permits only the known post-code-generation Windows
-access violation, requires a fresh output file, and still records the compiler
-failure. See [Verification](docs/VERIFICATION.md) before using that option.
-
-## Hardware build
-
-Open the XPR in Vivado, or run:
-
-```powershell
-./software/scripts/run_vivado.ps1 -VivadoRoot "C:/AMDDesignTools/2025.2/Vivado"
-```
-
-The batch flow writes reports and a bitstream to `software/build/vivado/`.
-It withholds the bitstream if setup or hold timing fails.
-
-## References
-
-- [System architecture](docs/ARCHITECTURE.md)
-- [Game engine API](firmware/GAME_ENGINE.md)
-- [Rules and cancellation](docs/RULES_AND_TESTS.md)
+[MIT](software/LICENSE).
